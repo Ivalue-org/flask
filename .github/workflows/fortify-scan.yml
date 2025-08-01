@@ -1,0 +1,54 @@
+name: Fortify on Demand SAST Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  fod-sast:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download FoDUCIT
+        run: |
+          wget https://tools.fortify.com/fod/fod-uploader.jar
+
+      - name: Run FoD SAST Scan
+        env:
+          FOD_API_URL: ${{ secrets.FOD_API_URL }}
+          FOD_CLIENT_ID: ${{ secrets.FOD_CLIENT_ID }}
+          FOD_CLIENT_SECRET: ${{ secrets.FOD_CLIENT_SECRET }}
+          FOD_TENANT: ${{ secrets.FOD_TENANT }}
+          FOD_RELEASE_ID: ${{ secrets.FOD_RELEASE_ID }}
+        run: |
+          zip -r source.zip .
+          java -jar fod-uploader.jar \
+            -z source.zip \
+            -aurl $FOD_API_URL \
+            -cid $FOD_CLIENT_ID \
+            -csecret $FOD_CLIENT_SECRET \
+            -tenant $FOD_TENANT \
+            -rid $FOD_RELEASE_ID \
+            -ep 2 \
+            -pp 2 \
+            -I true
+
+      - name: Upload Source Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: fod-source
+          path: source.zip
